@@ -9,7 +9,7 @@ library(targets)
 
 # Set target options:
 targets::tar_option_set(
-  packages = c("forexdatasets", "forexengine") # Packages that your targets need for their tasks.
+  packages = c("DBI", "forexdatasets", "forexengine") # Packages that your targets need for their tasks.
   # format = "qs", # Optionally set the default storage format. qs is fast.
   #
   # Pipelines that take a long time to run may benefit from
@@ -150,10 +150,14 @@ list(
   # extract required data from the database
   targets::tar_target(
     name = daily_list,
-    command = extract_daily_data(daily_meta, daily_paths, config),
+    command = {
+      stooq_data # just naming it makes daily_list wait for it
+      extract_daily_data(daily_meta, daily_paths, config)
+    },
     pattern = map(daily_meta, daily_paths),
     iteration = "list"
   ),
+
   # Bind the daily_list into one data.table
   targets::tar_target(
     name = daily_table,
@@ -187,19 +191,31 @@ list(
   # 1. Institutional Mapping per timeframe (consuming saved/updated datasets)
   targets::tar_target(
     name = weekly_mutate,
-    command = institutional_mapping(weekly_data, config)
+    command = institutional_mapping(
+      weekly_data[asset_class %in% c("Currency_Pairs", "Metals")],
+      config
+    )
   ),
   targets::tar_target(
     name = daily_mutate,
-    command = institutional_mapping(daily_data, config)
+    command = institutional_mapping(
+      daily_data[asset_class %in% c("Currency_Pairs", "Metals")],
+      config
+    )
   ),
   targets::tar_target(
     name = h4_mutate,
-    command = institutional_mapping(h4_data, config)
+    command = institutional_mapping(
+      h4_data[asset_class %in% c("Currency_Pairs", "Metals")],
+      config
+    )
   ),
   targets::tar_target(
     name = h1_mutate,
-    command = institutional_mapping(h1_data, config)
+    command = institutional_mapping(
+      h1_data[asset_class %in% c("Currency_Pairs", "Metals")],
+      config
+    )
   ),
   # 2. Reversal Watch Computation
   targets::tar_target(
@@ -296,17 +312,17 @@ list(
     )
   ),
   targets::tar_target(
-    name = save_H4_registry,
+    name = save_h4_registry,
     command = save_result(
-      H4_mutate$h4_registry,
+      h4_mutate$h4_registry,
       table = "registry",
       config = config
     )
   ),
   targets::tar_target(
-    name = save_H1_registry,
+    name = save_h1_registry,
     command = save_result(
-      H1_mutate$h1_registry,
+      h1_mutate$h1_registry,
       table = "registry",
       config = config
     )
@@ -330,34 +346,34 @@ list(
   ),
   # save bos_choch tables using forexengine's `save_result()`
   targets::tar_target(
-    name = save_weekly_registry,
+    name = save_weekly_boschoch,
     command = save_result(
       weekly_mutate$weekly_data,
-      table = "registry",
+      table = "bos_choch",
       config = config
     )
   ),
   targets::tar_target(
-    name = save_daily_registry,
+    name = save_daily_boschoch,
     command = save_result(
       daily_mutate$daily_data,
-      table = "registry",
+      table = "bos_choch",
       config = config
     )
   ),
   targets::tar_target(
-    name = save_H4_registry,
+    name = save_h4_boschoch,
     command = save_result(
-      H4_mutate$h4_data,
-      table = "registry",
+      h4_mutate$h4_data,
+      table = "bos_choch",
       config = config
     )
   ),
   targets::tar_target(
-    name = save_H1_registry,
+    name = save_h1_boschoch,
     command = save_result(
-      H1_mutate$h1_data,
-      table = "registry",
+      h1_mutate$h1_data,
+      table = "bos_choch",
       config = config
     )
   ),
